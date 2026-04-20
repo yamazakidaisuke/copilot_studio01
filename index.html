@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Copilot Studio エージェント作成 インタラクティブ・ガイド</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f5f5f4; 
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #d6d3d1; 
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #a8a29e; 
+        }
+        .nav-active {
+            background-color: #f5f5f4;
+            border-left: 4px solid #d97706;
+            color: #92400e;
+            font-weight: 600;
+        }
+        .toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 12px;
+            position: fixed;
+            z-index: 50;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.3s, bottom 0.3s;
+        }
+        .toast.show {
+            visibility: visible;
+            opacity: 1;
+            bottom: 50px;
+        }
+        .copy-btn {
+            transition: all 0.2s;
+        }
+        .copy-btn:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body class="bg-stone-50 text-stone-800 font-sans h-screen flex overflow-hidden">
+
+<!-- Chosen Palette: Warm Neutrals (Stone family) with Amber accents -->
+<!-- Application Structure Plan: The SPA transforms a linear instructional manual into an interactive learning dashboard. It uses a sidebar navigation model representing the 4 main phases of agent creation: 1. Setup, 2. Knowledge, 3. Testing, 4. Integration. This structure allows users to jump between steps, interact with the content (e.g., copying settings, simulating the chatbot), and track progress, making the learning experience active rather than passive reading. -->
+<!-- Visualization & Content Choices: 
+1. Setup -> Goal: Inform/Action -> Text blocks with copy buttons -> Interaction: Click to copy -> Justification: Makes manual practical -> Vanilla JS clipboard API.
+2. Knowledge -> Goal: Inform/Analyze -> Doughnut Chart (Chart.js) & Scrollable Text -> Interaction: Hover chart -> Justification: Breaks down a massive text file into understandable categories visually before showing the raw text. NO SVG used.
+3. Testing -> Goal: Experience/Verify -> Mock Chat Interface -> Interaction: Click questions to trigger bot -> Justification: Simulates the actual end-result of the manual without needing the real Copilot environment.
+4. Integration -> Goal: Action/Track -> Interactive Checklist -> Interaction: Checkboxes -> Justification: Turns a static list of steps into a satisfying progress-tracking tool. -->
+<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <aside class="w-64 bg-white border-r border-stone-200 flex flex-col h-full shrink-0 shadow-sm z-10 hidden md:flex">
+        <div class="p-6 border-b border-stone-200">
+            <h1 class="text-xl font-bold text-stone-800 leading-tight">Copilot Studio<br><span class="text-amber-600 text-base">講義デモ・ガイド</span></h1>
+        </div>
+        <nav class="flex-1 py-4 flex flex-col gap-1 overflow-y-auto custom-scrollbar" id="nav-menu">
+            <button data-target="section-setup" class="nav-item nav-active w-full text-left px-6 py-3 text-stone-600 hover:bg-stone-100 transition-colors flex items-center gap-3">
+                <span class="text-xl">&#128203;</span> 1. 基本設定
+            </button>
+            <button data-target="section-knowledge" class="nav-item w-full text-left px-6 py-3 text-stone-600 hover:bg-stone-100 transition-colors flex items-center gap-3">
+                <span class="text-xl">&#128218;</span> 2. ナレッジ追加
+            </button>
+            <button data-target="section-test" class="nav-item w-full text-left px-6 py-3 text-stone-600 hover:bg-stone-100 transition-colors flex items-center gap-3">
+                <span class="text-xl">&#128172;</span> 3. 動作テスト
+            </button>
+            <button data-target="section-teams" class="nav-item w-full text-left px-6 py-3 text-stone-600 hover:bg-stone-100 transition-colors flex items-center gap-3">
+                <span class="text-xl">&#128279;</span> 4. Teams連携
+            </button>
+        </nav>
+        <div class="p-4 border-t border-stone-200 text-xs text-stone-400 text-center">
+            新入社員FAQアシスタント
+        </div>
+    </aside>
+
+    <div class="md:hidden bg-white border-b border-stone-200 p-4 flex justify-between items-center shrink-0">
+        <h1 class="text-lg font-bold text-stone-800">Copilot Studio ガイド</h1>
+        <select id="mobile-nav" class="bg-stone-100 border border-stone-300 text-stone-700 rounded p-2 focus:outline-none focus:border-amber-500">
+            <option value="section-setup">1. 基本設定</option>
+            <option value="section-knowledge">2. ナレッジ追加</option>
+            <option value="section-test">3. 動作テスト</option>
+            <option value="section-teams">4. Teams連携</option>
+        </select>
+    </div>
+
+    <main class="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 relative">
+
+        <section id="section-setup" class="content-section max-w-5xl mx-auto block animate-fade-in">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-stone-800 mb-3 border-b-2 border-amber-500 pb-2 inline-block">1. エージェントの基本設定</h2>
+                <p class="text-stone-600 mt-4 leading-relaxed bg-white p-4 rounded-lg shadow-sm border border-stone-100">
+                    このセクションでは、Copilot Studioで新しいエージェントを作成する際の初期設定項目を確認します。<br>
+                    以下の設定値をコピーして、実際のCopilot Studioの画面に入力してください。この設定により、AIが「新入社員のサポート」という役割と制約を理解します。
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
+                    <div class="bg-stone-100 px-4 py-3 border-b border-stone-200 font-semibold text-stone-700 flex justify-between items-center">
+                        <span>エージェント名</span>
+                        <button class="copy-btn text-xs bg-white border border-stone-300 px-3 py-1 rounded hover:bg-stone-50 text-stone-600" data-copy="新入社員FAQアシスタント">&#128464; コピー</button>
+                    </div>
+                    <div class="p-4 bg-stone-50 text-stone-800 font-mono text-sm">
+                        新入社員FAQアシスタント
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
+                    <div class="bg-stone-100 px-4 py-3 border-b border-stone-200 font-semibold text-stone-700 flex justify-between items-center">
+                        <span>説明</span>
+                        <button class="copy-btn text-xs bg-white border border-stone-300 px-3 py-1 rounded hover:bg-stone-50 text-stone-600" data-copy="新入社員の疑問に対し、ナレッジを活用して短く箇条書きで日本語で回答するFAQアシスタントです。必要に応じて参照元URLや担当部署も案内します。機密情報は提供しません。">&#128464; コピー</button>
+                    </div>
+                    <div class="p-4 bg-stone-50 text-stone-800 font-mono text-sm h-full leading-relaxed">
+                        新入社員の疑問に対し、ナレッジを活用して短く箇条書きで日本語で回答するFAQアシスタントです。必要に応じて参照元URLや担当部署も案内します。機密情報は提供しません。
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden lg:col-span-2">
+                    <div class="bg-amber-50 px-4 py-3 border-b border-amber-200 font-semibold text-amber-900 flex justify-between items-center">
+                        <span>指示 (プロンプト)</span>
+                        <button class="copy-btn text-xs bg-white border border-amber-300 px-3 py-1 rounded hover:bg-amber-100 text-amber-700" data-copy="- 新入社員からの質問に対し、ナレッジを参照し日本語で短く箇条書きで回答する
+- 必要に応じて参照元URLや担当部署を最後に案内する
+- 機密情報は返さない
+- 質問が「入社初日」に関する場合は、以下4項目を短い箇条書きで必ず出力する
+   1. 当日の開始時刻と集合場所
+   2. 所要時間の目安
+   3. 持ち物（3点以内）
+   4. 当日連絡先（担当者名と内線）
+- 連絡先にメールアドレスがある場合は内線など全て併記する">&#128464; 全てコピー</button>
+                    </div>
+                    <div class="p-6 bg-stone-800 text-stone-100 font-mono text-sm leading-relaxed overflow-x-auto">
+- 新入社員からの質問に対し、ナレッジを参照し日本語で短く箇条書きで回答する<br>
+- 必要に応じて参照元URLや担当部署を最後に案内する<br>
+- 機密情報は返さない<br>
+- 質問が「入社初日」に関する場合は、以下4項目を短い箇条書きで必ず出力する<br>
+&nbsp;&nbsp;&nbsp;1. 当日の開始時刻と集合場所<br>
+&nbsp;&nbsp;&nbsp;2. 所要時間の目安<br>
+&nbsp;&nbsp;&nbsp;3. 持ち物（3点以内）<br>
+&nbsp;&nbsp;&nbsp;4. 当日連絡先（担当者名と内線）<br>
+- 連絡先にメールアドレスがある場合は内線など全て併記する
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-6 flex items-center gap-3 p-4 bg-stone-200 rounded-lg border border-stone-300">
+                <span class="text-2xl">&#9888;</span>
+                <span class="text-stone-700 font-medium">入力が完了したら、必ずCopilot Studio画面上で <strong class="text-black">「保存」</strong> をクリックしてください。</span>
+            </div>
+        </section>
+
+        <section id="section-knowledge" class="content-section max-w-5xl mx-auto hidden animate-fade-in">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-stone-800 mb-3 border-b-2 border-amber-500 pb-2 inline-block">2. ナレッジの追加</h2>
+                <p class="text-stone-600 mt-4 leading-relaxed bg-white p-4 rounded-lg shadow-sm border border-stone-100">
+                    エージェントが回答のベースとする社内情報をアップロードします。左側のグラフは、今回追加するファイル（demo01.txt）に含まれる情報の構成比率を分析したものです。右側のテキストエリアからファイル内容をコピーし、メモ帳等で保存してアップロードしてください。
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                
+                <div class="lg:col-span-2 flex flex-col gap-6">
+                    <div class="bg-amber-50 p-5 rounded-xl border border-amber-200 shadow-sm">
+                        <h4 class="font-bold text-amber-900 mb-2 flex items-center gap-2">
+                            <span class="text-xl">&#128229;</span> アップロード手順
+                        </h4>
+                        <ol class="list-decimal list-inside text-amber-800 space-y-2 text-sm mt-3">
+                            <li>右のテキストをコピーし、PC上で<code class="bg-amber-100 px-1 rounded">demo01.txt</code>として保存。</li>
+                            <li>Copilot Studioの「ナレッジ」を開きアップロード。</li>
+                            <li class="font-bold text-red-600">状態が「処理中」の間は数分間待機する。</li>
+                            <li>処理完了後、再度「保存」をクリック。</li>
+                        </ol>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+                        <h3 class="text-lg font-bold text-stone-700 mb-4 text-center">ナレッジファイルの内容分析</h3>
+                        <div class="chart-container">
+                            <canvas id="knowledgeChart"></canvas>
+                        </div>
+                        <div class="mt-4 text-sm text-stone-500 text-center">
+                            demo01.txt に含まれる情報のカテゴリ分布
+                        </div>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-3 bg-white rounded-xl shadow-sm border border-stone-200 flex flex-col h-[600px]">
+                    <div class="bg-stone-100 px-4 py-3 border-b border-stone-200 font-semibold text-stone-700 flex justify-between items-center shrink-0">
+                        <span>demo01.txt の内容</span>
+                        <button class="copy-btn text-xs bg-white border border-stone-300 px-3 py-1 rounded hover:bg-stone-50 text-stone-600" id="copy-knowledge-btn">&#128464; 全てコピー</button>
+                    </div>
+                    <div class="p-4 bg-stone-800 text-stone-200 font-mono text-xs overflow-y-auto custom-scrollbar flex-1 whitespace-pre" id="knowledge-text">============================================================
+           【新入社員用】入社手続き・セットアップガイド
+============================================================
+
+新入社員の皆様、ご入社おめでとうございます。
+本資料は、入社時の諸手続きを円滑に進めるためのマニュアルです。
+
+------------------------------------------------------------
+1. 必要書類と提出期限
+------------------------------------------------------------
+提出方法を遵守し、期限までの完了をお願いします。
+
+■ 雇用契約書（署名済）
+   - 提出先：人事部
+   - 期限　：入社初日まで（方法：紙 または 電子署名）
+
+■ 本人確認書類コピー
+   - 提出先：人事部
+   - 期限　：入社初日（方法：電子アップロード）
+
+■ 銀行口座情報・交通費申請
+   - 提出先：給与担当
+   - 期限　：入社初週（方法：社内精算システム入力）
+
+■ 扶養控除等申告書
+   - 提出先：人事部
+   - 期限　：入社月末（方法：電子フォーム）
+
+■ マイナンバー提出
+   - 提出先：人事部（別封）
+   - 期限　：入社初週（方法：専用BOX または 暗号化UP）
+
+------------------------------------------------------------
+2. 勤務・社内ルール（重要）
+------------------------------------------------------------
+■ 勤怠連絡
+   - 始業時間に間に合わない場合や欠勤時は、[ 9:00 ] までに
+     配属先の [ Teamsチャネル / 直属上長 ] へ連絡してください。
+   - 打刻は [ 社内勤怠システム ] にて毎日行ってください。
+
+■ 経費精算
+   - 通勤定期・立替経費は [ 毎月●日 ] が締め切りです。
+   - 領収書は捨てずに保管し、電子化して申請してください。
+
+■ 情報セキュリティ
+   - 離席時は必ず [ Win+L ] でPCをロックしてください。
+   - 許可なく社内の写真（ホワイトボード等）をSNSへ投稿することを禁じます。
+   - 貸与PC以外の個人デバイスを社内NWへ接続しないでください。
+
+------------------------------------------------------------
+3. 入社初日・初週のスケジュール（DEMO）
+------------------------------------------------------------
+■ 入社日：2026年04月01日（木曜日）
+   - 集合：09:30　本社ビル1階 受付
+   - 担当：人事部 佐藤 太郎（内線 101 ）
+
+■ 当日のタイムライン
+   09:30 - 09:45  集合・受付
+   09:45 - 10:15  オリエンテーション（人事説明・就業規則）
+   10:15 - 10:45  書類確認（個別）
+   10:45 - 11:45  ITセットアップ（PC受領・初期設定）
+   12:00 - 13:00  昼休憩
+   13:00 - 14:00  配属先顔合わせ・座席案内
+   14:00 - 14:45  ツールアクセス確認・研修案内
+
+------------------------------------------------------------
+4. IT準備とアカウント設定手順
+------------------------------------------------------------
+1. 機器受領：IT窓口で貸与PC等を受け取る。
+2. 初期ログイン：配布パスワードでログイン後、直ちに変更する。
+3. 多要素認証(MFA)：社内規定に従い、認証アプリを登録する。
+4. 疎通確認：メール、チャット（Teams等）、VPNの接続を確認する。
+
+【トラブル時】
+・ログイン不可/ロック：ITサポートデスクへチケットを作成。
+・管理者権限が必要なソフト導入：ITへ個別に申請。
+
+------------------------------------------------------------
+5. 問い合わせ先一覧
+------------------------------------------------------------
+・人事書類/福利厚生：人事部（内線101 / hr@example.com）
+・勤怠/給与/経費　 ：給与担当（payroll@example.com）
+・ITトラブル　　　 ：ITサポートデスク（チケットシステム）
+・緊急セキュリティ ：セキュリティチーム（sec-hotline@example.com）
+・配属先の業務　　 ：各配属チームリーダー（Teams / 内線201）
+
+------------------------------------------------------------
+6. 管理者用：案内メールテンプレート
+------------------------------------------------------------
+件名：【ご案内】入社初日の集合場所と持ち物について
+
+本文：
+{氏名} 様
+
+入社おめでとうございます。初日の詳細は以下の通りです。
+・日時：2026年04月01日 09:30
+・場所：本社ビル1階受付
+・持参物：本人確認書類、銀行口座情報、筆記用具
+・緊急連絡先：人事 佐藤（内線101）
+
+当日はPC設定や就業規則の説明も行います。お気をつけてお越しください。</div>
+                </div>
+            </div>
+        </section>
+
+        <section id="section-test" class="content-section max-w-5xl mx-auto hidden animate-fade-in">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-stone-800 mb-3 border-b-2 border-amber-500 pb-2 inline-block">3. 動作テスト（テキストコピー）</h2>
+                <p class="text-stone-600 mt-4 leading-relaxed bg-white p-4 rounded-lg shadow-sm border border-stone-100">
+                    ナレッジが正しく読み込まれているかテストするための質問リストです。<br>
+                    左側のリストから質問をクリックすると、右側に質問と想定される回答テキストが表示されます。実際のTeamsやCopilotのチャット画面へコピー＆ペーストして動作を確認してください。
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <div class="bg-white rounded-xl shadow-sm border border-stone-200 flex flex-col h-[500px]">
+                    <div class="bg-stone-100 px-4 py-3 border-b border-stone-200 font-semibold text-stone-700">
+                        テスト質問リスト
+                    </div>
+                    <div class="p-2 overflow-y-auto custom-scrollbar flex-1 space-y-1" id="question-list">
+                    </div>
+                </div>
+
+                <div class="bg-stone-100 rounded-xl shadow-inner border border-stone-300 flex flex-col h-[500px] relative overflow-hidden">
+                    <div class="bg-amber-600 px-4 py-3 text-white font-semibold flex items-center justify-between shadow-md z-10">
+                        <div class="flex items-center gap-2">
+                            <span class="text-2xl">&#128203;</span> 質問と回答テキスト
+                        </div>
+                    </div>
+                    <div class="flex-1 p-4 bg-white overflow-hidden flex flex-col">
+                        <textarea id="test-text-display" class="w-full h-full p-4 border border-stone-200 rounded-lg resize-none focus:outline-none focus:border-amber-500 custom-scrollbar text-sm text-stone-700 font-mono leading-relaxed" readonly placeholder="左のリストから質問をクリックすると、ここにテキストが表示されます..."></textarea>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="section-teams" class="content-section max-w-5xl mx-auto hidden animate-fade-in">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-stone-800 mb-3 border-b-2 border-amber-500 pb-2 inline-block">4. Teams連携手順</h2>
+                <p class="text-stone-600 mt-4 leading-relaxed bg-white p-4 rounded-lg shadow-sm border border-stone-100">
+                    作成したエージェントを実際の業務で使えるよう、Microsoft Teamsに連携させます。以下のステップを上から順に実行し、チェックボックスをオンにして進行状況を管理しましょう。
+                </p>
+                <div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-sm flex gap-3">
+                    <span class="text-lg">&#8505;</span>
+                    <span>企業のアカウント設定（権限設定）によっては、Teams連携機能が使えない場合があります。その場合はこの手順をスキップし、復習として新しいエージェントの作成を試みてください。</span>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-stone-200 p-6 lg:p-8 max-w-3xl mx-auto">
+                
+                <div class="mb-6">
+                    <div class="flex justify-between text-sm text-stone-600 mb-2 font-semibold">
+                        <span>連携プログレス</span>
+                        <span id="progress-text">0%</span>
+                    </div>
+                    <div class="w-full bg-stone-100 rounded-full h-3 border border-stone-200">
+                        <div id="progress-bar" class="bg-amber-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="space-y-3" id="checklist-container">
+                </div>
+
+                <div id="success-message" class="hidden mt-8 p-6 bg-stone-800 text-center rounded-xl border border-stone-700 animate-fade-in shadow-lg">
+                    <div class="text-4xl mb-3">&#127881;</div>
+                    <h3 class="text-xl font-bold text-white mb-2">連携完了！</h3>
+                    <p class="text-stone-300 text-sm">Teamsのメニューバー内に「新入社員FAQアシスタント」が追加されました。これで基本編は終了です。お疲れ様でした！</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <div id="toast" class="toast shadow-lg border border-stone-600">クリップボードにコピーしました</div>
+
+    <script>
+        const qaData = [
+            { q: "入社初日は何時にどこに集合すればよいですか", topic: "入社初日スケジュール", a: "2026年04月01日 09:30 に本社ビル1階受付に集合。\n担当：人事部 佐藤 太郎（内線101）。\n当日はオリエンテーションとITセットアップを行います。" },
+            { q: "入社時に提出する必要書類を教えてください", topic: "必要書類一覧", a: "・雇用契約書（署名済）\n・本人確認書類コピー\n・銀行口座情報\n・扶養控除等申告書\n・マイナンバー（別封）\n\n提出期限は入社初日または入社初週です。" },
+            { q: "銀行口座情報や交通費申請はいつまでに出せばよいですか", topic: "銀行口座・交通費", a: "入社初週までに社内精算システムへ入力してください。" },
+            { q: "PCの初期ログインでパスワードが通りません", topic: "ITセットアップ／トラブル対応", a: "初期パスワードを確認しCapsLockを解除してください。\nアカウントロックの場合はITサポートデスクへチケット作成を行ってください。" },
+            { q: "多要素認証（MFA）の設定方法を教えてください", topic: "MFA設定", a: "社内規定に従い認証アプリを登録してください。\n（社内ポータルのMFA設定ページでQRコードをスキャンします）" },
+            { q: "入社初日に持参するものは何ですか", topic: "入社初日持ち物", a: "・本人確認書類\n・銀行口座情報\n・筆記用具\n・（緊急連絡先：人事 佐藤 内線101）" },
+            { q: "勤怠の打刻や欠勤連絡はどうすればよいですか", topic: "勤怠ルール", a: "始業時間に間に合わない場合は9:00までに配属先のTeamsチャネルまたは直属上長へ連絡してください。\n打刻は社内勤怠システムで毎日行います。" },
+            { q: "マイナンバーの提出方法を教えてください", topic: "マイナンバー提出", a: "人事へ別封で提出してください。\n（専用BOXまたは暗号化アップロードを利用）。電子保存の場合は暗号化が必須です。" },
+            { q: "在宅勤務を申請するにはどうすればよいですか", topic: "在宅勤務申請", a: "勤怠システムで「在宅勤務申請」を行い、日付と理由を入力して上長承認を得てください。\nリモート時はVPN接続を確認してください。" },
+            { q: "セキュリティ事故を発見したときの連絡先は？", topic: "セキュリティ対応", a: "セキュリティチーム（sec-hotline@example.com）へ直ちに連絡し、同時にITチケットを作成してください。\n重大な場合は電話で即時報告が必要です。" }
+        ];
+
+        const teamsSteps = [
+            "上部の「チャネル」タブを開く",
+            "「TeamsとMicrosoft 365 Copilot」を選択する",
+            "「エージェントをMicrosoft365Copilotで使用可能にする」にチェックを入れる",
+            "「追加する」ボタンをクリックする",
+            "「Teamsでエージェントを表示する」をクリックする",
+            "ブラウザAlert「Teamsを開く」が表示されたらクリックする",
+            "Teams画面に切り替わり「追加」ボタンが表示されるのでクリックする",
+            "「正常に追加されました」というメッセージを確認する",
+            "「開く」ボタンをクリックする",
+            "Teamsのメニューバー内にエージェントが追加されたことを確認する"
+        ];
+
+        function showToast(message) {
+            const toast = document.getElementById("toast");
+            toast.textContent = message;
+            toast.classList.add("show");
+            setTimeout(() => { toast.classList.remove("show"); }, 2500);
+        }
+
+        // コピー機能のフォールバック (iframe内での権限エラー対策)
+        function copyTextToClipboard(text, successMessage) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            // 画面スクロールを防ぐためのスタイリング
+            textArea.style.position = "fixed";
+            textArea.style.top = "-9999px";
+            textArea.style.left = "-9999px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showToast(successMessage);
+                } else {
+                    console.error('Copy command was unsuccessful');
+                }
+            } catch (err) {
+                console.error('Oops, unable to copy', err);
+            }
+            document.body.removeChild(textArea);
+        }
+
+        document.querySelectorAll('.copy-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const textToCopy = btn.getAttribute('data-copy');
+                if (textToCopy) {
+                    copyTextToClipboard(textToCopy, "クリップボードにコピーしました");
+                }
+            });
+        });
+
+        const copyKnowledgeBtn = document.getElementById('copy-knowledge-btn');
+        if (copyKnowledgeBtn) {
+            copyKnowledgeBtn.addEventListener('click', () => {
+                const text = document.getElementById('knowledge-text').innerText;
+                copyTextToClipboard(text, "ナレッジテキストをコピーしました");
+            });
+        }
+
+        const navItems = document.querySelectorAll('.nav-item');
+        const sections = document.querySelectorAll('.content-section');
+        const mobileNav = document.getElementById('mobile-nav');
+
+        function switchSection(targetId) {
+            sections.forEach(sec => sec.classList.add('hidden'));
+            const targetSec = document.getElementById(targetId);
+            if(targetSec) targetSec.classList.remove('hidden');
+
+            navItems.forEach(item => {
+                item.classList.remove('nav-active', 'bg-stone-100');
+                if(item.getAttribute('data-target') === targetId) {
+                    item.classList.add('nav-active');
+                }
+            });
+
+            if(mobileNav.value !== targetId) {
+                mobileNav.value = targetId;
+            }
+
+            if(targetId === 'section-knowledge') {
+                renderChart();
+            }
+        }
+
+        navItems.forEach(item => {
+            item.addEventListener('click', () => {
+                switchSection(item.getAttribute('data-target'));
+            });
+        });
+
+        mobileNav.addEventListener('change', (e) => {
+            switchSection(e.target.value);
+        });
+
+        let chartRendered = false;
+        function renderChart() {
+            if(chartRendered) return;
+            const ctx = document.getElementById('knowledgeChart').getContext('2d');
+            
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['書類・手続き関連', '勤怠・社内ルール', 'スケジュール案内', 'IT・システム準備', '問い合わせ情報'],
+                    datasets: [{
+                        data: [25, 20, 20, 20, 15],
+                        backgroundColor: [
+                            '#d6d3d1', 
+                            '#a8a29e', 
+                            '#78716c', 
+                            '#57534e', 
+                            '#44403c'  
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { padding: 20, font: { family: 'sans-serif' }, color: '#57534e' }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(68, 64, 60, 0.9)',
+                            padding: 12,
+                            bodyFont: { size: 14 },
+                            callbacks: {
+                                label: function(context) {
+                                    return ' ' + context.label + ': ' + context.parsed + '%';
+                                }
+                            }
+                        }
+                    },
+                    cutout: '65%'
+                }
+            });
+            chartRendered = true;
+        }
+
+        const qListContainer = document.getElementById('question-list');
+        const testTextDisplay = document.getElementById('test-text-display');
+
+        qaData.forEach((data, index) => {
+            const btn = document.createElement('button');
+            btn.className = 'w-full text-left p-3 bg-white hover:bg-amber-50 border border-stone-200 rounded-lg text-sm text-stone-700 transition-colors shadow-sm focus:ring-2 focus:ring-amber-400 focus:outline-none';
+            btn.innerHTML = `<span class="font-bold text-amber-700 mr-2">Q.</span>${data.q}`;
+            
+            btn.addEventListener('click', () => {
+                const textContent = `【質問】\n${data.q}\n\n【想定トピック】\n${data.topic}\n\n【模範解答】\n${data.a}`;
+                testTextDisplay.value = textContent;
+            });
+            
+            qListContainer.appendChild(btn);
+        });
+
+        const checklistContainer = document.getElementById('checklist-container');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const successMessage = document.getElementById('success-message');
+        let checkedCount = 0;
+
+        function updateProgress() {
+            const percentage = Math.round((checkedCount / teamsSteps.length) * 100);
+            progressBar.style.width = percentage + '%';
+            progressText.textContent = percentage + '%';
+            
+            if (percentage === 100) {
+                successMessage.classList.remove('hidden');
+            } else {
+                successMessage.classList.add('hidden');
+            }
+        }
+
+        teamsSteps.forEach((step, index) => {
+            const label = document.createElement('label');
+            label.className = 'flex items-start gap-3 p-4 bg-stone-50 border border-stone-200 rounded-lg cursor-pointer hover:bg-stone-100 transition-colors shadow-sm';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'mt-1 w-5 h-5 text-amber-600 bg-white border-stone-300 rounded focus:ring-amber-500 focus:ring-2 cursor-pointer';
+            
+            const span = document.createElement('span');
+            span.className = 'text-stone-700 font-medium select-none';
+            span.innerHTML = `<span class="text-stone-400 font-bold mr-2">${index + 1}.</span> ${step}`;
+            
+            checkbox.addEventListener('change', (e) => {
+                if(e.target.checked) {
+                    checkedCount++;
+                    label.classList.add('bg-amber-50', 'border-amber-200');
+                    label.classList.remove('bg-stone-50', 'border-stone-200');
+                } else {
+                    checkedCount--;
+                    label.classList.remove('bg-amber-50', 'border-amber-200');
+                    label.classList.add('bg-stone-50', 'border-stone-200');
+                }
+                updateProgress();
+            });
+
+            label.appendChild(checkbox);
+            label.appendChild(span);
+            checklistContainer.appendChild(label);
+        });
+
+        document.head.insertAdjacentHTML('beforeend', '<style>.animate-fade-in { animation: fadeIn 0.4s ease-out forwards; } @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }</style>');
+
+    </script>
+</body>
+</html>
